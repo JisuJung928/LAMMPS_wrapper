@@ -1,0 +1,15 @@
+# potential parameter #
+NELEMENT        = 2
+ATOM_TYPE       = O Pt
+PAIR_STYLE      = nn
+PAIR_COEFF      = * * potential_saved O Pt
+CUTOFF          = 6.0
+
+# neb parameter #
+NIMAGES         = 7
+MAX_FORCE       = 0.05
+BOND_LENGTH     = 2.8
+
+# structure parameter #
+INIT_CONFIG     = ./POSCAR
+INIT_RELAX      = 1
