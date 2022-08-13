@@ -225,7 +225,7 @@ int get_mask(Config *config, Input *input, char *rlx_cmd, char *fix_cmd,
     int num_rlx = 0;
     int num_fix = 0;
 
-    e_cutoff = input->cutoff + input->bond_length;
+    e_cutoff = input->cutoff;
     f_cutoff = e_cutoff + input->cutoff;
 
     ref[0] = config->pos[index * 3 + 0]; 

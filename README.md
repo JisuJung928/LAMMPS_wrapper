@@ -40,7 +40,6 @@ CUTOFF          = 6.0
 # neb parameter #
 NIMAGES         = 7
 MAX_FORCE       = 0.05
-BOND_LENGTH     = 2.8
 
 # structure parameter #
 INIT_CONFIG     = ./POSCAR
@@ -56,7 +55,6 @@ INIT_RELAX      = 1
 |CUTOFF|Cutoff of local energy|Ang|
 |NIMAGES|The number of images in diffusion path||
 |MAX_FORCE|Force convergence criteria|eV/Ang|
-|BOND_LENGTH|Average bond length in configuration|Ang|
 |INIT_CONFIG|Initial configuration in simulation||
 |INIT_RELAX|Initial relaxation after preprocess (1: yes, 0: no)||
 

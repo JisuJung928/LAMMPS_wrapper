@@ -217,10 +217,6 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
-    errno = input_double(&(input->bond_length), "BOND_LENGTH", filename);
-    if (errno) {
-        return 1;
-    }
     errno = input_double(&(input->cutoff), "CUTOFF", filename);
     if (errno) {
         return 1;

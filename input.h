@@ -13,7 +13,6 @@ typedef struct _Input
     int init_relax;
 
     double max_force;
-    double bond_length;
     double cutoff;
 } Input;
 
