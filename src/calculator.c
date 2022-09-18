@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "calculator.h"
 #define LAMMPS_LIB_MPI
 #include "library.h"
@@ -34,7 +35,8 @@ void *lmp_init(Config *config, Input *input,
     lammps_create_atoms(lmp, config->tot_num, config->id,
                         config->type, config->pos, NULL, NULL, 0);
     for (i = 0; i < input->nelem; ++i) {
-        sprintf(cmd, "mass %d %f", i + 1, get_mass(get_atom_num(input->symbol[i])));
+        sprintf(cmd, "mass %d %f", i + 1,
+                get_mass(get_atom_num(input->atom_type[i])));
         lammps_command(lmp, cmd);
     }
     return lmp;
@@ -46,8 +48,8 @@ double global_oneshot(Config *config, Input *input, MPI_Comm comm)
     char cmd[1024];
     void *lmp = NULL;
     /* create LAMMPS instance */
-    char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
-    //char *lmpargv[] = {"liblammps", "-screen", "none"};
+    //char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
+    char *lmpargv[] = {"liblammps", "-screen", "none"};
     int lmpargc = sizeof(lmpargv) / sizeof(char *);
     lmp = lmp_init(config, input, lmpargc, lmpargv, comm);
     /* potential */
@@ -128,13 +130,14 @@ double local_oneshot_xyz(Config *config, Input *input, double *center, MPI_Comm 
     sprintf(cmd, "pair_coeff %s", input->pair_coeff);
     lammps_command(lmp, cmd);
     /* group and delete */
+    // 3: typical bond length
     sprintf(cmd, "region double sphere %f %f %f %f",
             center[0], center[1], center[2],
-            input->cutoff * 2 + input->bond_length);
+            input->cutoff * 2 + 3);
     lammps_command(lmp, cmd);
     sprintf(cmd, "region single sphere %f %f %f %f",
             center[0], center[1], center[2],
-            input->cutoff + input->bond_length);
+            input->cutoff + 3);
     lammps_command(lmp, cmd);
     lammps_command(lmp, "group single region single");
     lammps_command(lmp, "group double region double");
@@ -156,11 +159,12 @@ double local_oneshot_xyz(Config *config, Input *input, double *center, MPI_Comm 
 
 double atom_relax(Config *config, Input *input, MPI_Comm comm)
 {
-    char cmd[1024];
+    int i;
+    char cmd[1024], tmp_cmd[1024];
     void *lmp = NULL;
     /* create LAMMPS instance */
-    char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
-    //char *lmpargv[] = {"liblammps", "-screen", "none"};
+    //char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
+    char *lmpargv[] = {"liblammps", "-screen", "none"};
     int lmpargc = sizeof(lmpargv) / sizeof(char *);
     lmp = lmp_init(config, input, lmpargc, lmpargv, comm);
     /* potential */
@@ -170,6 +174,25 @@ double atom_relax(Config *config, Input *input, MPI_Comm comm)
     lammps_command(lmp, cmd);
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
+    /* fix */
+    int fix_num = 0;
+    for (i = 0; i < config->tot_num; ++i) {
+        if (config->fix[i] > 0) {
+            fix_num++;
+            break;
+        }
+    }
+    if (fix_num > 0) {
+        sprintf(cmd, "group freeze id");
+        for (i = 0; i < config->tot_num; ++i) {
+            if (config->fix[i] > 0) {
+                sprintf(tmp_cmd, " %d", i + 1);
+                strcat(cmd, tmp_cmd); 
+            }
+        }
+        lammps_command(lmp, cmd);
+        lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
+    }
     /*
     lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z");
     lammps_command(lmp, "dump_modify mydump sort id"); 
@@ -179,7 +202,7 @@ double atom_relax(Config *config, Input *input, MPI_Comm comm)
     lammps_command(lmp, cmd);
     double pe = lammps_get_thermo(lmp, "pe");
     /* update positions */
-    lammps_gather_atoms(lmp, "x", 2, 3, config->pos);
+    lammps_gather_atoms(lmp, "x", 1, 3, config->pos);
     /* delete LAMMPS instance */
     lammps_close(lmp);
 
@@ -192,7 +215,8 @@ double cell_relax(Config *config, Input *input, MPI_Comm comm)
     char cmd[1024];
     void *lmp = NULL;
     /* create LAMMPS instance */
-    char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
+    //char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
+    char *lmpargv[] = {"liblammps", "-screen", "none"};
     int lmpargc = sizeof(lmpargv) / sizeof(char *);
     lmp = lmp_init(config, input, lmpargc, lmpargv, comm);
     /* potential */
@@ -209,7 +233,7 @@ double cell_relax(Config *config, Input *input, MPI_Comm comm)
     lammps_command(lmp, cmd);
     double pe = lammps_get_thermo(lmp, "pe") / lammps_get_natoms(lmp);
     /* update positions */
-    lammps_gather_atoms(lmp, "x", 2, 3, config->pos);
+    lammps_gather_atoms(lmp, "x", 1, 3, config->pos);
     /* delete LAMMPS instance */
     lammps_close(lmp);
 

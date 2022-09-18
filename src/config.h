@@ -17,14 +17,15 @@ typedef struct _Config
     int *each_num;        /* the number of each types */
 
     int *id;
+    int *fix;
     int *type;            /* type index starting from 1 */
     double *pos;          /* [N * 3] dimension of positions */
 } Config;
 
-void convert_basis(Config *);
-void extract_atom(Config *, int);
 int read_config(Config *, Input *, char *);
-void write_config(Config *, char *);
+void extract_atom(Config *, int);
+void write_config(Config *, char *, char *);
 void copy_config(Config *, Config *);
+int diff_config(Config *, Config *, double);
 void free_config(Config *);
 #endif

@@ -2,6 +2,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "calculator.h"
 #define LAMMPS_LIB_MPI
 #include "library.h"
@@ -75,11 +76,11 @@ void initial_path(Config *initial, Config *final, Input *input, int *mask, int n
                 get_minimum_image(del, final->boxlo, final->boxhi,
                                   final->xy, final->yz, final->xz);
                 double dist = norm(del);
-                if (dist < input->bond_length - 0.6) {
+                if (dist < 3 - 0.6) {
                     near = 1;
-                    tmp_pos[j * 3 + 0] -= 0.1 * (input->bond_length - dist) * del[0] / dist;
-                    tmp_pos[j * 3 + 1] -= 0.1 * (input->bond_length - dist) * del[1] / dist;
-                    tmp_pos[j * 3 + 2] -= 0.1 * (input->bond_length - dist) * del[2] / dist;
+                    tmp_pos[j * 3 + 0] -= 0.1 * (3 - dist) * del[0] / dist;
+                    tmp_pos[j * 3 + 1] -= 0.1 * (3 - dist) * del[1] / dist;
+                    tmp_pos[j * 3 + 2] -= 0.1 * (3 - dist) * del[2] / dist;
                 }
             }
         }
@@ -118,7 +119,7 @@ void neb(Config *initial_config, Config *final_config, Input *input,
 {
     int i, rank, size;
     double del[3];
-    char cmd[4096], partition[8];
+    char cmd[4096], tmp_cmd[4096], partition[8];
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -158,6 +159,25 @@ void neb(Config *initial_config, Config *final_config, Input *input,
 
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
+    /* fix */
+    int fix_num = 0;
+    for (i = 0; i < initial_config->tot_num; ++i) {
+        if (initial_config->fix[i] > 0) {
+            fix_num++;
+            break;
+        }
+    }
+    if (fix_num > 0) {
+        sprintf(cmd, "group freeze id");
+        for (i = 0; i < initial_config->tot_num; ++i) {
+            if (initial_config->fix[i] > 0) {
+                sprintf(tmp_cmd, " %d", i + 1);
+                strcat(cmd, tmp_cmd); 
+            }
+        }
+        lammps_command(lmp, cmd);
+        lammps_command(lmp, "fix 3 freeze setforce 0.0 0.0 0.0");
+    }
     /* neb */
     lammps_command(lmp, "variable i equal part");
     /*
@@ -179,7 +199,7 @@ void neb(Config *initial_config, Config *final_config, Input *input,
     if (rank % local_size == 0) {
         char filename[128];
         sprintf(filename, "POSCAR_%d", rank / local_size);
-        write_config(final_config, filename);
+        write_config(final_config, filename, "w");
     }
 
     /* delete LAMMPS instance */

@@ -197,11 +197,7 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
-    errno = input_char(&(input->init_config), "INIT_CONFIG", filename);
-    if (errno) {
-        return 1;
-    }
-    errno = input_char_arr(&(input->symbol), "ATOM_TYPE", input->nelem, filename);
+    errno = input_char_arr(&(input->atom_type), "ATOM_TYPE", input->nelem, filename);
     if (errno) {
         return 1;
     }
@@ -225,7 +221,19 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
-    errno = input_int(&(input->init_relax), "INIT_RELAX", filename);
+    errno = input_int(&(input->oneshot), "ONESHOT", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_int(&(input->atom_relax), "ATOM_RELAX", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_int(&(input->cell_relax), "CELL_RELAX", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_int(&(input->neb), "NEB", filename);
     if (errno) {
         return 1;
     }
@@ -236,10 +244,9 @@ int read_input(Input *input, char *filename)
 void free_input(Input *input)
 {
     for (int i = 0; i < input->nelem; ++i) {
-        free(input->symbol[i]);
+        free(input->atom_type[i]);
     }
-    free(input->symbol);
-    free(input->init_config);
+    free(input->atom_type);
     free(input->pair_style);
     free(input->pair_coeff);
     free(input);

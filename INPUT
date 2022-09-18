@@ -1,14 +1,16 @@
 # potential parameter #
-NELEMENT        = 2
-ATOM_TYPE       = O Pt
-PAIR_STYLE      = nn
-PAIR_COEFF      = * * potential_saved O Pt
-CUTOFF          = 6.0
+NELEMENT    = 2
+ATOM_TYPE   = O Pt
+PAIR_STYLE  = nn
+PAIR_COEFF  = * * potential_saved O Pt
+CUTOFF      = 6.0
+MAX_FORCE   = 0.05
+
+# calculator #
+ONESHOT     = 0
+ATOM_RELAX  = 1
+CELL_RELAX  = 0
+NEB         = 0
 
 # neb parameter #
-NIMAGES         = 7
-MAX_FORCE       = 0.05
-
-# structure parameter #
-INIT_CONFIG     = ./POSCAR
-INIT_RELAX      = 1
+NIMAGES     = 7

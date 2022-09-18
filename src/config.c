@@ -1,9 +1,7 @@
 #include <math.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include "config.h"
 #include "utils.h"
 
@@ -127,6 +125,7 @@ void extract_atom(Config *config, int idx)
     }
 
     for (i = idx; i < config->tot_num - 1; ++i) {
+        config->fix[i] = config->fix[i + 1];
         config->type[i] = config->type[i + 1];
         config->pos[i * 3 + 0] = config->pos[(i + 1) * 3 + 0];
         config->pos[i * 3 + 1] = config->pos[(i + 1) * 3 + 1];
@@ -135,6 +134,7 @@ void extract_atom(Config *config, int idx)
     config->tot_num--;
     tot_num = config->tot_num;
     config->id = (int *)realloc(config->id, sizeof(int) * tot_num);
+    config->fix = (int *)realloc(config->fix, sizeof(int) * tot_num);
     config->type = (int *)realloc(config->type, sizeof(int) * tot_num);
     config->pos = (double *)realloc(config->pos, sizeof(double) * tot_num * 3);
 }
@@ -180,14 +180,14 @@ int read_config(Config *config, Input *input, char *filename)
 
     /* atomic number type */
     ptr = strtok(tmp_line, " \n");
-    config->atom_num = (int *)calloc(config->ntype, sizeof(int));
+    config->atom_num = (int *)malloc(sizeof(int) * config->ntype);
     for (i = 0; i < config->ntype; ++i) {
         config->atom_num[i] = get_atom_num(ptr);
         ptr = strtok(NULL, " \n");
     }
 
     /* each number of type */
-    config->each_num = (int *)calloc(config->ntype, sizeof(int));
+    config->each_num = (int *)malloc(sizeof(int) * config->ntype);
     int *start_idx = (int *)calloc(config->ntype, sizeof(int));
     config->tot_num = 0;
     ptr = fgets(line, MAXLINE, fp);
@@ -205,7 +205,7 @@ int read_config(Config *config, Input *input, char *filename)
     config->type = (int *)malloc(sizeof(int) * config->tot_num);
     for (i = 0; i < config->ntype; ++i) {
         for (j = 0; j < input->nelem; ++j) {
-            if (config->atom_num[i] == get_atom_num(input->symbol[j])) {
+            if (config->atom_num[i] == get_atom_num(input->atom_type[j])) {
                 for (k = 0; k < config->each_num[i]; ++k) {
                     config->type[count] = j + 1;
                     config->id[count] = count + 1;
@@ -218,8 +218,11 @@ int read_config(Config *config, Input *input, char *filename)
 
     /* positions and constraint */
     ptr = fgets(line, MAXLINE, fp);
+    config->fix = (int *)calloc(config->tot_num, sizeof(int));
     config->pos = (double *)malloc(sizeof(double) * config->tot_num * 3);
+    int constraint = 0;
     if (strncasecmp(line, "S", 1) == 0) {
+        constraint = 1;
         ptr = fgets(line, MAXLINE, fp);
     }
     if (strncasecmp(line, "D", 1) == 0) {
@@ -233,6 +236,12 @@ int read_config(Config *config, Input *input, char *filename)
                                        + tmp_pos[1] * config->cell[1][j]
                                        + tmp_pos[2] * config->cell[2][j];
             }
+            if (constraint > 0) {
+                ptr = strtok(NULL, " \n");
+                if (strcmp(ptr, "F") == 0) {
+                    config->fix[i] = 1;
+                }
+            }
         }
     } else {
         for (i = 0; i < config->tot_num; ++i) {
@@ -240,6 +249,12 @@ int read_config(Config *config, Input *input, char *filename)
             config->pos[i * 3 + 0] = atof(strtok(line, " \n"));
             config->pos[i * 3 + 1] = atof(strtok(NULL, " \n"));
             config->pos[i * 3 + 2] = atof(strtok(NULL, " \n"));
+            if (constraint > 0) {
+                ptr = strtok(NULL, " \n");
+                if (strcmp(ptr, "F") == 0) {
+                    config->fix[i] = 1;
+                }
+            }
         }
     }
     convert_basis(config);
@@ -248,96 +263,51 @@ int read_config(Config *config, Input *input, char *filename)
 }
 
 
-void write_config(Config *config, char *filename)
+void write_config(Config *config, char *filename, char *mode)
 {
     int i;
-    char line[MAXLINE];
-    FILE *fp = fopen(filename, "a");
+    FILE *fp;
+    fp = fopen(filename, mode);
 
     /* title */
-    fputs("Configuration in MINK\n", fp);
+    fputs("POSCAR\n", fp);
 
     /* scale */
     fputs("1.0\n", fp);
     
     /* lattice vector */
     for (i = 0; i < 3; ++i) {
-        sprintf(line, " %19.16f", config->cell[i][0]);
-        fputs(line, fp);
-        sprintf(line, " %19.16f", config->cell[i][1]);
-        fputs(line, fp);
-        sprintf(line, " %19.16f\n", config->cell[i][2]);
-        fputs(line, fp);
+        fprintf(fp, " %.15f %.15f %.15f\n",
+                config->cell[i][0], config->cell[i][1], config->cell[i][2]);
     }
 
     /* symbols */
     for (i = 0; i < config->ntype; ++i) {
-        sprintf(line, " %s", get_symbol(config->atom_num[i]));
-        fputs(line, fp);
+        fprintf(fp, " %s", get_symbol(config->atom_num[i]));
     }
     fputs("\n", fp);
 
     /* the number of each type */
     for (i = 0; i < config->ntype; ++i) {
-        sprintf(line, " %d", config->each_num[i]);
-        fputs(line, fp);
+        fprintf(fp, " %d", config->each_num[i]);
     }
     fputs("\n", fp);
 
-    double cross[3][3]; 
-    cross[0][0] = config->cell[1][1] * config->cell[2][2]
-                - config->cell[1][2] * config->cell[2][1];
-    cross[0][1] = config->cell[1][2] * config->cell[2][0]
-                - config->cell[1][0] * config->cell[2][2];
-    cross[0][2] = config->cell[1][0] * config->cell[2][1]
-                - config->cell[1][1] * config->cell[2][0];
-    cross[1][0] = config->cell[2][1] * config->cell[0][2]
-                - config->cell[2][2] * config->cell[0][1];
-    cross[1][1] = config->cell[2][2] * config->cell[0][0]
-                - config->cell[2][0] * config->cell[0][2];
-    cross[1][2] = config->cell[2][0] * config->cell[0][1]
-                - config->cell[2][1] * config->cell[0][0];
-    cross[2][0] = config->cell[0][1] * config->cell[1][2]
-                - config->cell[0][2] * config->cell[1][1];
-    cross[2][1] = config->cell[0][2] * config->cell[1][0]
-                - config->cell[0][0] * config->cell[1][2];
-    cross[2][2] = config->cell[0][0] * config->cell[1][1]
-                - config->cell[0][1] * config->cell[1][0];
-
-    double vol = cross[0][0] * config->cell[0][0]
-               + cross[0][1] * config->cell[0][1]
-               + cross[0][2] * config->cell[0][2];
-
-    double inv[3][3];
-    inv[0][0] = cross[0][0] / vol;
-    inv[0][1] = cross[1][0] / vol;
-    inv[0][2] = cross[2][0] / vol;
-    inv[1][0] = cross[0][1] / vol;
-    inv[1][1] = cross[1][1] / vol;
-    inv[1][2] = cross[2][1] / vol;
-    inv[2][0] = cross[0][2] / vol;
-    inv[2][1] = cross[1][2] / vol;
-    inv[2][2] = cross[2][2] / vol;
-
-    /* positions */
-    fputs("Direct\n", fp);
+    /* positions and constraint */
+    fputs("Selective dynamics\n", fp);
+    fputs("Cartesian\n", fp);
     for (i = 0; i < config->tot_num; ++i) {
-        double pos[3];
-        pos[0] = config->pos[i * 3 + 0] * inv[0][0]
-               + config->pos[i * 3 + 1] * inv[1][0]
-               + config->pos[i * 3 + 2] * inv[2][0];
-        pos[1] = config->pos[i * 3 + 0] * inv[0][1]
-               + config->pos[i * 3 + 1] * inv[1][1]
-               + config->pos[i * 3 + 2] * inv[2][1];
-        pos[2] = config->pos[i * 3 + 0] * inv[0][2]
-               + config->pos[i * 3 + 1] * inv[1][2]
-               + config->pos[i * 3 + 2] * inv[2][2];
-        sprintf(line, "  %19.16f", pos[0]);
-        fputs(line, fp);
-        sprintf(line, "  %19.16f", pos[1]);
-        fputs(line, fp);
-        sprintf(line, "  %19.16f\n", pos[2]);
-        fputs(line, fp);
+        if (config->fix[i] > 0) {
+            fprintf(fp, "  %.15f  %.15f  %.15f  F F F\n",
+                    config->pos[i * 3 + 0],
+                    config->pos[i * 3 + 1],
+                    config->pos[i * 3 + 2]);
+        } else {
+            fprintf(fp, "  %.15f  %.15f  %.15f  T T T\n",
+                    config->pos[i * 3 + 0],
+                    config->pos[i * 3 + 1],
+                    config->pos[i * 3 + 2]);
+        }
     }
     fclose(fp);
 }
@@ -372,6 +342,7 @@ void copy_config(Config *config2, Config *config1)
     config2->atom_num = (int *)malloc(sizeof(int) * config1->ntype);
     config2->each_num = (int *)malloc(sizeof(int) * config1->ntype);
     config2->id = (int *)malloc(sizeof(int) * config1->tot_num);
+    config2->fix = (int *)malloc(sizeof(int) * config1->tot_num);
     config2->type = (int *)malloc(sizeof(int) * config1->tot_num);
     config2->pos = (double *)malloc(sizeof(double) * config1->tot_num * 3);
 
@@ -381,6 +352,7 @@ void copy_config(Config *config2, Config *config1)
     }
     for (i = 0; i < config1->tot_num; ++i) {
         config2->id[i] = config1->id[i];
+        config2->fix[i] = config1->fix[i];
         config2->type[i] = config1->type[i];
         config2->pos[i * 3 + 0] = config1->pos[i * 3 + 0];
         config2->pos[i * 3 + 1] = config1->pos[i * 3 + 1];
@@ -389,11 +361,33 @@ void copy_config(Config *config2, Config *config1)
 }
 
 
+/* 0: identical, 1: different */
+int diff_config(Config *config1, Config *config2, double tol)
+{
+    int i;
+    for (i = 0; i < config1->tot_num; ++i) {
+        if (config1->type[i] != config2->type[i]) {
+            return 1;
+        };
+        double disp[3] = {config2->pos[i * 3 + 0] - config1->pos[i * 3 + 0],
+                          config2->pos[i * 3 + 1] - config1->pos[i * 3 + 1],
+                          config2->pos[i * 3 + 2] - config1->pos[i * 3 + 2]};
+        get_minimum_image(disp, config1->boxlo, config1->boxhi,
+                          config1->xy, config1->yz, config1->xz);
+        if (norm(disp) > tol) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
 void free_config(Config *config)
 {
     free(config->atom_num);
     free(config->each_num);
     free(config->id);
+    free(config->fix);
     free(config->type);
     free(config->pos);
     free(config);

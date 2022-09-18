@@ -3,14 +3,16 @@
 
 typedef struct _Input
 {
-    char *init_config;
     char *pair_style;
     char *pair_coeff;
-    char **symbol;
+    char **atom_type;
 
     int nelem;
     int nimages;
-    int init_relax;
+    int oneshot;
+    int atom_relax;
+    int cell_relax;
+    int neb;
 
     double max_force;
     double cutoff;
