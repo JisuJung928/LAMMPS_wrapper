@@ -76,7 +76,7 @@ void initial_path(Config *initial, Config *final, Input *input, int *mask, int n
                 get_minimum_image(del, final->boxlo, final->boxhi,
                                   final->xy, final->yz, final->xz);
                 double dist = norm(del);
-                if (dist < 3 - 0.6) {
+                if (dist < input->min_dist) {
                     near = 1;
                     tmp_pos[j * 3 + 0] -= 0.1 * (3 - dist) * del[0] / dist;
                     tmp_pos[j * 3 + 1] -= 0.1 * (3 - dist) * del[1] / dist;

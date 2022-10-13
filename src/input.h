@@ -16,6 +16,7 @@ typedef struct _Input
 
     double max_force;
     double cutoff;
+    double min_dist;
 } Input;
 
 int input_int(int *, char *, char *);

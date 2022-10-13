@@ -143,7 +143,7 @@ int input_char(char **var, char *tag, char *filename)
         } else if (strncmp(ptr, tag, strlen(tag)) == 0) {
             strtok(line, " \n\t");
             strtok(NULL, " \n\t");
-            *var = (char *)malloc(sizeof(char) * 32);
+            *var = (char *)malloc(sizeof(char) * 128);
             strcpy(*var, strtok(NULL, "\n"));
             fclose(fp);
             return 0;
@@ -214,6 +214,10 @@ int read_input(Input *input, char *filename)
         return 1;
     }
     errno = input_double(&(input->cutoff), "CUTOFF", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_double(&(input->min_dist), "MIN_DIST", filename);
     if (errno) {
         return 1;
     }

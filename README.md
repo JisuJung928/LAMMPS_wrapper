@@ -50,6 +50,7 @@ NIMAGES     = 7
 |PAIR_COEFF|`pair_coeff` in LAMMPS input file||
 |CUTOFF|Cutoff of local energy|Ang|
 |MAX_FORCE|Force convergence criteria|eV/Ang|
+|MIN_DIST|Minimum distance in initial images of NEB|Ang|
 |ONESHOT|Flag for oneshot calculation||
 |ATOM_RELAX|Flag for atomic relaxation||
 |CELL_RELAX|Flag for cell relaxation||
