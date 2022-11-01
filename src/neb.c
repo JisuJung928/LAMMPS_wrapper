@@ -154,7 +154,7 @@ void neb(Config *initial_config, Config *final_config, Input *input,
         lammps_command(lmp, "delete_atoms group del compress no");
     }
     lammps_command(lmp, "fix 2 rlx neb 5.0 parallel neigh");
-    lammps_command(lmp, "timestep 0.01");
+    lammps_command(lmp, "timestep 0.001");
     lammps_command(lmp, "min_style fire");
 
     /* balance */

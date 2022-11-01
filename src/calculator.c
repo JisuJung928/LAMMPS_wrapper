@@ -193,10 +193,9 @@ double atom_relax(Config *config, Input *input, MPI_Comm comm)
         lammps_command(lmp, cmd);
         lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
     }
-    /*
+    /* test */
     lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z");
     lammps_command(lmp, "dump_modify mydump sort id"); 
-    */
     /* minimize */
     sprintf(cmd, "minimize 0 %f 10000 100000", input->max_force);
     lammps_command(lmp, cmd);
@@ -228,6 +227,9 @@ double cell_relax(Config *config, Input *input, MPI_Comm comm)
     lammps_command(lmp, "fix 1 all box/relax tri 0.0");
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
+    /* test */
+    lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z fx fy fz");
+    lammps_command(lmp, "dump_modify mydump sort id");
     /* minimize */
     sprintf(cmd, "minimize 0 %f 10000 100000", input->max_force);
     lammps_command(lmp, cmd);
