@@ -13,6 +13,4 @@ extern void get_minimum_image(double *del, double *boxlo, double *boxhi,
 int get_atom_num(char *);
 double get_mass(int);
 char *get_symbol(int);
-int *get_pairs(Config *, Input *, int *, double);
-int get_mask(Config *, Input *, char *, char *, int *, int, MPI_Comm);
 #endif

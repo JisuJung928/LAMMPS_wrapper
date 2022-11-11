@@ -6,7 +6,6 @@
 #include "calculator.h"
 #include "config.h"
 #include "input.h"
-#include "neb.h"
 #include "utils.h"
 
 
@@ -36,17 +35,17 @@ int main(int argc, char *argv[])
     if (input->oneshot) {
         Config *config = (Config *)malloc(sizeof(Config));
         read_config(config, input, argv[1]);
-        global_oneshot(config, input, MPI_COMM_WORLD);
+        oneshot(config, input);
         free_config(config);
     } else if (input->atom_relax) {
         Config *config = (Config *)malloc(sizeof(Config));
         read_config(config, input, argv[1]);
-        atom_relax(config, input, MPI_COMM_WORLD);
+        atom_relax(config, input);
         free_config(config);
     } else if (input->cell_relax) {
         Config *config = (Config *)malloc(sizeof(Config));
         read_config(config, input, argv[1]);
-        cell_relax(config, input, MPI_COMM_WORLD);
+        cell_relax(config, input);
         free_config(config);
     } else if (input->neb) {
         if (size % input->nimages != 0) {
@@ -66,19 +65,13 @@ int main(int argc, char *argv[])
         }
         Config *ini_config = (Config *)malloc(sizeof(Config));
         read_config(ini_config, input, argv[1]);
-        atom_relax(ini_config, input, MPI_COMM_WORLD);
+        atom_relax(ini_config, input);
         Config *fin_config = (Config *)malloc(sizeof(Config));
         read_config(fin_config, input, argv[2]);
-        atom_relax(fin_config, input, MPI_COMM_WORLD);
-
-        int *mask = (int *)malloc(sizeof(int) * ini_config->tot_num);
-        char *rlx_cmd = (char *)malloc(sizeof(char) * ini_config->tot_num * 6);
-        char *fix_cmd = (char *)malloc(sizeof(char) * ini_config->tot_num * 6);
-        int nummask = get_mask(ini_config, input, rlx_cmd, fix_cmd, mask, atoi(argv[3]), MPI_COMM_WORLD);
-        mask = (int *)realloc(mask, sizeof(int) * nummask);
+        atom_relax(fin_config, input);
 
         /* neb */
-        neb(ini_config, fin_config, input, rlx_cmd, fix_cmd, mask, nummask);
+        neb(ini_config, fin_config, input);
 
         if (rank == 0) {
             remove("./output/in.template");
@@ -86,12 +79,9 @@ int main(int argc, char *argv[])
 
         free_config(ini_config);
         free_config(fin_config);
-        free_input(input);
-        free(mask);
-        free(rlx_cmd);
-        free(fix_cmd);
     }
 
+    free_input(input);
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
     return 0;

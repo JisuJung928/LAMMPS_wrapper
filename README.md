@@ -29,7 +29,6 @@ NELEMENT    = 2
 ATOM_TYPE   = O Pt
 PAIR_STYLE  = nn
 PAIR_COEFF  = * * potential_saved O Pt
-CUTOFF      = 6.0
 MAX_FORCE   = 0.05
 
 # calculator #
@@ -48,7 +47,6 @@ NIMAGES     = 7
 |ATOM_TYPE|Symbols of atom types in potential||
 |PAIR_STYLE|`pair_style` in LAMMPS input file||
 |PAIR_COEFF|`pair_coeff` in LAMMPS input file||
-|CUTOFF|Cutoff of local energy|Ang|
 |MAX_FORCE|Force convergence criteria|eV/Ang|
 |MIN_DIST|Minimum distance in initial images of NEB|Ang|
 |ONESHOT|Flag for oneshot calculation||
@@ -59,10 +57,10 @@ NIMAGES     = 7
 
 ## Command
 ```bash
-mpirun -np $numproc ./LAMMPS_calculator POSCAR_in POSCAR_fin index
+mpirun -np $numproc ./LAMMPS_calculator POSCAR
+mpirun -np $numproc ./LAMMPS_calculator POSCAR_in POSCAR_fin
 ```
 `$numproc` stands for the number of CPU cores in parallel computation.
-`index` represents the index of diffusing atom.
 
 ## Tips  
 1. `INIT_CONFIG` should be VASP5 POSCAR format. 

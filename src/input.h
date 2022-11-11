@@ -15,7 +15,6 @@ typedef struct _Input
     int neb;
 
     double max_force;
-    double cutoff;
     double min_dist;
 } Input;
 

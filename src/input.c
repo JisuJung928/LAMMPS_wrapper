@@ -213,10 +213,6 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
-    errno = input_double(&(input->cutoff), "CUTOFF", filename);
-    if (errno) {
-        return 1;
-    }
     errno = input_double(&(input->min_dist), "MIN_DIST", filename);
     if (errno) {
         return 1;

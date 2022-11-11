@@ -1,3 +1,5 @@
+#include <math.h>
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,14 +9,13 @@
 #include "utils.h"
 
 
-void *lmp_init(Config *config, Input *input,
-               int lmpargc, char **lmpargv, MPI_Comm comm)
+void *lmp_init(Config *config, Input *input, int lmpargc, char **lmpargv)
 {
     /* create LAMMPS instance */
     int i;
     void *lmp;
     char cmd[1024];
-    lmp = lammps_open(lmpargc, lmpargv, comm, NULL);
+    lmp = lammps_open(lmpargc, lmpargv, MPI_COMM_WORLD, NULL);
     if (lmp == NULL) {
         printf("LAMMPS initialization failed");
     }
@@ -43,15 +44,14 @@ void *lmp_init(Config *config, Input *input,
 }
 
 
-double global_oneshot(Config *config, Input *input, MPI_Comm comm)
+void oneshot(Config *config, Input *input)
 {
     char cmd[1024];
     void *lmp = NULL;
     /* create LAMMPS instance */
-    //char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
     char *lmpargv[] = {"liblammps", "-screen", "none"};
     int lmpargc = sizeof(lmpargv) / sizeof(char *);
-    lmp = lmp_init(config, input, lmpargc, lmpargv, comm);
+    lmp = lmp_init(config, input, lmpargc, lmpargv);
     /* potential */
     sprintf(cmd, "pair_style %s", input->pair_style);
     lammps_command(lmp, cmd);
@@ -61,112 +61,24 @@ double global_oneshot(Config *config, Input *input, MPI_Comm comm)
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
     /* oneshot */
     lammps_command(lmp, "run 0");
-    double pe = lammps_get_thermo(lmp, "pe");
     /* delete LAMMPS instance */
     lammps_close(lmp);
-
-    return pe;
 }
 
 
-double local_oneshot(Config *config, Input *input, int index, MPI_Comm comm)
+void atom_relax(Config *config, Input *input)
 {
-    char cmd[1024];
-    void *lmp = NULL;
-
-    char *rlx_cmd = (char *)malloc(sizeof(char) * config->tot_num * 6);
-    char *fix_cmd = (char *)malloc(sizeof(char) * config->tot_num * 6);
-    /* local mask */
-    int *mask = (int *)malloc(sizeof(int) * config->tot_num);
-    int nummask = get_mask(config, input, rlx_cmd, fix_cmd, mask, index, comm);
-    mask = (int *)realloc(mask, sizeof(int) * nummask);
-
-    /* create LAMMPS instance */
-    char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
-    //char *lmpargv[] = {"liblammps", "-screen", "none"};
-    int lmpargc = sizeof(lmpargv) / sizeof(char *);
-    lmp = lmp_init(config, input, lmpargc, lmpargv, comm);
-    /* potential */
-    sprintf(cmd, "pair_style %s", input->pair_style);
-    lammps_command(lmp, cmd);
-    sprintf(cmd, "pair_coeff %s", input->pair_coeff);
-    lammps_command(lmp, cmd);
-    /* group and delete */
-    lammps_command(lmp, rlx_cmd);
-    if (nummask < config->tot_num) {
-        lammps_command(lmp, fix_cmd);
-        lammps_command(lmp, "fix 1 fix setforce 0.0 0.0 0.0");
-        lammps_command(lmp, "group del subtract all rlx fix");
-        lammps_command(lmp, "delete_atoms group del compress no");
-    }
-    /* balance */
-    lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
-    /* oneshot */
-    lammps_command(lmp, "run 0");
-    double pe = lammps_get_thermo(lmp, "pe");
-    /* delete LAMMPS instance */
-    lammps_close(lmp);
-
-    free(rlx_cmd);
-    free(fix_cmd);
-    free(mask);
-
-    return pe;
-}
-
-
-double local_oneshot_xyz(Config *config, Input *input, double *center, MPI_Comm comm)
-{
-    char cmd[1024];
-    void *lmp = NULL;
-
-    /* create LAMMPS instance */
-    char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
-    int lmpargc = sizeof(lmpargv) / sizeof(char *);
-    lmp = lmp_init(config, input, lmpargc, lmpargv, comm);
-    /* potential */
-    sprintf(cmd, "pair_style %s", input->pair_style);
-    lammps_command(lmp, cmd);
-    sprintf(cmd, "pair_coeff %s", input->pair_coeff);
-    lammps_command(lmp, cmd);
-    /* group and delete */
-    // 3: typical bond length
-    sprintf(cmd, "region double sphere %f %f %f %f",
-            center[0], center[1], center[2],
-            input->cutoff * 2 + 3);
-    lammps_command(lmp, cmd);
-    sprintf(cmd, "region single sphere %f %f %f %f",
-            center[0], center[1], center[2],
-            input->cutoff + 3);
-    lammps_command(lmp, cmd);
-    lammps_command(lmp, "group single region single");
-    lammps_command(lmp, "group double region double");
-    lammps_command(lmp, "group fix subtract double single");
-    lammps_command(lmp, "group del subtract all double");
-    lammps_command(lmp, "fix 1 fix setforce 0.0 0.0 0.0");
-    lammps_command(lmp, "delete_atoms group del compress no");
-    /* balance */
-    lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
-    /* oneshot */
-    lammps_command(lmp, "run 0");
-    double pe = lammps_get_thermo(lmp, "pe");
-    /* delete LAMMPS instance */
-    lammps_close(lmp);
-
-    return pe;
-}
-
-
-double atom_relax(Config *config, Input *input, MPI_Comm comm)
-{
-    int i;
+    int i, rank, size;
     char cmd[1024], tmp_cmd[1024];
     void *lmp = NULL;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
     /* create LAMMPS instance */
-    //char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
     char *lmpargv[] = {"liblammps", "-screen", "none"};
     int lmpargc = sizeof(lmpargv) / sizeof(char *);
-    lmp = lmp_init(config, input, lmpargc, lmpargv, comm);
+    lmp = lmp_init(config, input, lmpargc, lmpargv);
     /* potential */
     sprintf(cmd, "pair_style %s", input->pair_style);
     lammps_command(lmp, cmd);
@@ -175,14 +87,71 @@ double atom_relax(Config *config, Input *input, MPI_Comm comm)
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
     /* fix */
-    int fix_num = 0;
+    int fix = 0;
     for (i = 0; i < config->tot_num; ++i) {
         if (config->fix[i] > 0) {
-            fix_num++;
+            fix++;
             break;
         }
     }
-    if (fix_num > 0) {
+    if (fix > 0) {
+        sprintf(cmd, "group freeze id");
+        for (i = 0; i < config->tot_num; ++i) {
+            if (config->fix[i] > 0) {
+                sprintf(tmp_cmd, " %d", i + 1);
+                strcat(cmd, tmp_cmd);
+            }
+        }
+        lammps_command(lmp, cmd);
+        lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
+    }
+    /* dump */
+    lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z");
+    lammps_command(lmp, "dump_modify mydump sort id");
+    /* minimize */
+    sprintf(cmd, "minimize 0 %f 10000 100000", input->max_force);
+    lammps_command(lmp, cmd);
+    /* update positions */
+    lammps_gather_atoms(lmp, "x", 1, 3, config->pos);
+    if (rank == 0) {
+        write_config(config, "POSCAR_relaxed", "w");
+    }
+    /* delete LAMMPS instance */
+    lammps_close(lmp);
+}
+
+
+void cell_relax(Config *config, Input *input)
+{
+    int i, rank, size;
+    char cmd[1024], tmp_cmd[1024];
+    void *lmp = NULL;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    /* create LAMMPS instance */
+    char *lmpargv[] = {"liblammps", "-screen", "none"};
+    int lmpargc = sizeof(lmpargv) / sizeof(char *);
+    lmp = lmp_init(config, input, lmpargc, lmpargv);
+    /* potential */
+    sprintf(cmd, "pair_style %s", input->pair_style);
+    lammps_command(lmp, cmd);
+    sprintf(cmd, "pair_coeff %s", input->pair_coeff);
+    lammps_command(lmp, cmd);
+    /* full relax */
+    lammps_command(lmp, "fix 1 all box/relax tri 0.0");
+    /* balance */
+    lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
+    /* fix */
+    int fix = 0;
+    for (i = 0; i < config->tot_num; ++i) {
+        if (config->fix[i] > 0) {
+            fix++;
+            break;
+        }
+    }
+    if (fix > 0) {
         sprintf(cmd, "group freeze id");
         for (i = 0; i < config->tot_num; ++i) {
             if (config->fix[i] > 0) {
@@ -193,41 +162,7 @@ double atom_relax(Config *config, Input *input, MPI_Comm comm)
         lammps_command(lmp, cmd);
         lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
     }
-    /* test */
-    lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z");
-    lammps_command(lmp, "dump_modify mydump sort id"); 
-    /* minimize */
-    sprintf(cmd, "minimize 0 %f 10000 100000", input->max_force);
-    lammps_command(lmp, cmd);
-    double pe = lammps_get_thermo(lmp, "pe");
-    /* update positions */
-    lammps_gather_atoms(lmp, "x", 1, 3, config->pos);
-    /* delete LAMMPS instance */
-    lammps_close(lmp);
-
-    return pe;
-}
-
-
-double cell_relax(Config *config, Input *input, MPI_Comm comm)
-{
-    char cmd[1024];
-    void *lmp = NULL;
-    /* create LAMMPS instance */
-    //char *lmpargv[] = {"liblammps", "-log", "none", "-screen", "none"};
-    char *lmpargv[] = {"liblammps", "-screen", "none"};
-    int lmpargc = sizeof(lmpargv) / sizeof(char *);
-    lmp = lmp_init(config, input, lmpargc, lmpargv, comm);
-    /* potential */
-    sprintf(cmd, "pair_style %s", input->pair_style);
-    lammps_command(lmp, cmd);
-    sprintf(cmd, "pair_coeff %s", input->pair_coeff);
-    lammps_command(lmp, cmd);
-    /* full relax */
-    lammps_command(lmp, "fix 1 all box/relax tri 0.0");
-    /* balance */
-    lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
-    /* test */
+    /* dump */
     lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z fx fy fz");
     lammps_command(lmp, "dump_modify mydump sort id");
     /* minimize */
@@ -236,8 +171,187 @@ double cell_relax(Config *config, Input *input, MPI_Comm comm)
     double pe = lammps_get_thermo(lmp, "pe") / lammps_get_natoms(lmp);
     /* update positions */
     lammps_gather_atoms(lmp, "x", 1, 3, config->pos);
+    if (rank == 0) {
+        write_config(config, "POSCAR_relaxed", "w");
+    }
     /* delete LAMMPS instance */
     lammps_close(lmp);
+}
 
-    return pe;
+
+static void initial_path(Config *initial, Config *final, Input *input)
+{
+    int i, j, k, rank, size;
+    double del[3];
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    /* initial linear path */
+    int local_size = size / input->nimages;
+    int local_rank = rank % local_size;
+    int img_index = rank / local_size;
+    double ratio = (double)(img_index) / (input->nimages - 1);
+
+    int tot_num = initial->tot_num;
+    double *tmp_pos = (double *)malloc(sizeof(double) * tot_num * 3);
+    for (i = 0; i < tot_num; ++i) {
+        del[0] = final->pos[i * 3 + 0] - initial->pos[i * 3 + 0];
+        del[1] = final->pos[i * 3 + 1] - initial->pos[i * 3 + 1];
+        del[2] = final->pos[i * 3 + 2] - initial->pos[i * 3 + 2];
+        get_minimum_image(del, final->boxlo, final->boxhi,
+                          final->xy, final->yz, final->xz);
+        tmp_pos[i * 3 + 0] = initial->pos[i * 3 + 0] + ratio * del[0];
+        tmp_pos[i * 3 + 1] = initial->pos[i * 3 + 1] + ratio * del[1];
+        tmp_pos[i * 3 + 2] = initial->pos[i * 3 + 2] + ratio * del[2];
+    }
+
+    /* local MPI communicator */
+    int q = tot_num / local_size;
+    int r = tot_num % local_size;
+    int begin = local_rank * q + ((local_rank > r) ? r : local_rank);
+    int end = begin + q;
+    if (r > local_rank) {
+        end++;
+    }
+    MPI_Comm comm_tmp;
+    MPI_Comm_split(MPI_COMM_WORLD, img_index, rank, &comm_tmp);
+    int count = (end - begin) * 3;
+    int *counts = (int *)malloc(sizeof(int) * local_size);
+    MPI_Allgather(&count, 1, MPI_INT, counts, 1, MPI_INT, comm_tmp);
+    int *displ = (int *)malloc(sizeof(int) * local_size);
+    displ[0] = 0;
+    if (size > 1) {
+        for (i = 1; i < local_size; ++i) {
+            displ[i] = displ[i - 1] + counts[i - 1];
+        }
+    }
+    /* maximum trial 1000 */
+    for (i = 0; i < 1000; ++i) {
+        int near = 0;
+        for (j = begin; j < end; ++j) {
+            for (k = 0; k < tot_num; ++k) {
+                if (j == k) {
+                    continue;
+                }
+                del[0] = tmp_pos[k * 3 + 0] - tmp_pos[j * 3 + 0];
+                del[1] = tmp_pos[k * 3 + 1] - tmp_pos[j * 3 + 1];
+                del[2] = tmp_pos[k * 3 + 2] - tmp_pos[j * 3 + 2];
+                get_minimum_image(del, final->boxlo, final->boxhi,
+                                  final->xy, final->yz, final->xz);
+                double dist = norm(del);
+                if (dist < input->min_dist) {
+                    near = 1;
+                    tmp_pos[j * 3 + 0] -= 0.1 * (3 - dist) * del[0] / dist;
+                    tmp_pos[j * 3 + 1] -= 0.1 * (3 - dist) * del[1] / dist;
+                    tmp_pos[j * 3 + 2] -= 0.1 * (3 - dist) * del[2] / dist;
+                }
+            }
+        }
+        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
+                       tmp_pos, counts, displ, MPI_DOUBLE, comm_tmp);
+        MPI_Allreduce(MPI_IN_PLACE, &near, 1, MPI_INT, MPI_SUM, comm_tmp);
+        if (near == 0) {
+            break;
+        }
+    }
+    free(counts);
+    free(displ);
+    MPI_Barrier(comm_tmp);
+    MPI_Comm_free(&comm_tmp);
+
+    /* write each replica */
+    if (local_rank == 0) {
+        char line[128];
+        sprintf(line, "replica.%d", img_index);
+        FILE *fp = fopen(line, "w");
+        sprintf(line, "%d\n", tot_num);
+        fputs(line, fp);
+        for (i = 0; i < tot_num; ++i) {
+            sprintf(line, "%d %f %f %f\n", i + 1,
+                    tmp_pos[i * 3 + 0], tmp_pos[i * 3 + 1], tmp_pos[i * 3 + 2]);
+            fputs(line, fp);
+        }
+        fclose(fp);
+    }
+    free(tmp_pos);
+}
+
+
+void neb(Config *initial_config, Config *final_config, Input *input)
+{
+    int i, rank, size;
+    double del[3];
+    char cmd[4096], tmp_cmd[4096], partition[8];
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    /* initial path */
+    initial_path(initial_config, final_config, input);
+
+    int local_size = size / input->nimages;
+    sprintf(partition, "%dx%d", input->nimages, local_size);
+
+    /* create LAMMPS instance */
+    void *lmp = NULL;
+    //char *lmpargv[] = {"liblammps", "-screen", "none",
+    char *lmpargv[] = {"liblammps", "-screen", "none",
+                       "-partition", partition, "-in", "in.template"};
+    int lmpargc = sizeof(lmpargv) / sizeof(char *);
+    lmp = lmp_init(initial_config, input, lmpargc, lmpargv);
+
+    /* potential */
+    sprintf(cmd, "pair_style %s", input->pair_style);
+    lammps_command(lmp, cmd);
+    sprintf(cmd, "pair_coeff %s", input->pair_coeff);
+    lammps_command(lmp, cmd);
+
+    /* fix */
+    int fix = 0;
+    for (i = 0; i < initial_config->tot_num; ++i) {
+        if (initial_config->fix[i] > 0) {
+            fix++;
+            break;
+        }
+    }
+    if (fix > 0) {
+        sprintf(cmd, "group freeze id");
+        for (i = 0; i < initial_config->tot_num; ++i) {
+            if (initial_config->fix[i] > 0) {
+                sprintf(tmp_cmd, " %d", i + 1);
+                strcat(cmd, tmp_cmd);
+            }
+        }
+        lammps_command(lmp, cmd);
+        lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
+        lammps_command(lmp, "group neb subtract all freeze");
+        lammps_command(lmp, "fix 2 neb neb 5.0 parallel neigh");
+    } else {
+        lammps_command(lmp, "fix 2 all neb 5.0 parallel neigh");
+    }
+    lammps_command(lmp, "timestep 0.005");
+    lammps_command(lmp, "min_style quickmin");
+
+    /* balance */
+    lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
+    /* neb */
+    lammps_command(lmp, "variable i equal part");
+    /*
+    lammps_command(lmp, "dump mydump all custom 1 dump.lammps.$i id type x y z");
+    lammps_command(lmp, "dump_modify mydump sort id");
+    */
+    sprintf(cmd, "neb 0.0 %f 1000 1000 1 each replica.$i", input->max_force);
+    lammps_command(lmp, cmd);
+
+    /* update positions */
+    lammps_gather_atoms(lmp, "x", 1, 3, final_config->pos);
+    if (rank % local_size == 0) {
+        char filename[128];
+        sprintf(filename, "POSCAR_%d", rank / local_size);
+        write_config(final_config, filename, "w");
+    }
+
+    /* delete LAMMPS instance */
+    lammps_close(lmp);
 }
