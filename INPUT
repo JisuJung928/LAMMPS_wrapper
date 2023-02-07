@@ -11,6 +11,7 @@ ONESHOT     = 0
 ATOM_RELAX  = 1
 CELL_RELAX  = 0
 NEB         = 0
+DYNAMIC_MAT = 0
 
 # neb parameter #
 NIMAGES     = 7

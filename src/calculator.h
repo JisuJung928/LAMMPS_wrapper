@@ -8,4 +8,5 @@ void oneshot(Config *, Input *);
 void atom_relax(Config *, Input *);
 void cell_relax(Config *, Input *);
 void neb(Config *, Config *, Input *);
+void dynamical_matrix(Config *, Input *, int, int *);
 #endif

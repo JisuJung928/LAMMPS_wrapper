@@ -13,6 +13,7 @@ typedef struct _Input
     int atom_relax;
     int cell_relax;
     int neb;
+    int dynamic_mat;
 
     double max_force;
     double min_dist;

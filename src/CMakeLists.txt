@@ -16,6 +16,7 @@ SET ( SRC_FILES
         calculator.c
         config.c
         input.c
+        target.c
         utils.c )
 SET ( CMAKE_C_COMPILER "mpiicc" )
 ADD_COMPILE_OPTIONS ( -O3 -g -Wall )

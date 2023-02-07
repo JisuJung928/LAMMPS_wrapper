@@ -331,17 +331,16 @@ void neb(Config *initial_config, Config *final_config, Input *input)
         lammps_command(lmp, "fix 2 all neb 5.0 parallel neigh");
     }
     lammps_command(lmp, "timestep 0.005");
-    lammps_command(lmp, "min_style quickmin");
+    lammps_command(lmp, "min_style fire");
 
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
     /* neb */
     lammps_command(lmp, "variable i equal part");
-    /*
-    lammps_command(lmp, "dump mydump all custom 1 dump.lammps.$i id type x y z");
-    lammps_command(lmp, "dump_modify mydump sort id");
-    */
-    sprintf(cmd, "neb 0.0 %f 1000 1000 1 each replica.$i", input->max_force);
+//    lammps_command(lmp, "dump mydump all custom 1 dump.lammps.$i id type x y z");
+//    lammps_command(lmp, "dump_modify mydump sort id");
+    //sprintf(cmd, "neb 0.0 %f 1000 1000 1 each replica.$i", input->max_force);
+    sprintf(cmd, "neb 0.0 %f 1000 0 1 each replica.$i", input->max_force);
     lammps_command(lmp, cmd);
 
     /* update positions */
@@ -352,6 +351,56 @@ void neb(Config *initial_config, Config *final_config, Input *input)
         write_config(final_config, filename, "w");
     }
 
+    /* delete LAMMPS instance */
+    lammps_close(lmp);
+}
+
+
+void dynamical_matrix(Config *config, Input *input, int target_num, int *target_list)
+{
+    int i;
+    char tmp_cmd[1024], cmd[1024];
+    void *lmp = NULL;
+    /* create LAMMPS instance */
+    char *lmpargv[] = {"liblammps", "-screen", "none"};
+    int lmpargc = sizeof(lmpargv) / sizeof(char *);
+    lmp = lmp_init(config, input, lmpargc, lmpargv);
+    /* potential */
+    sprintf(cmd, "pair_style %s", input->pair_style);
+    lammps_command(lmp, cmd);
+    sprintf(cmd, "pair_coeff %s", input->pair_coeff);
+    lammps_command(lmp, cmd);
+    /* balance */
+    lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
+    /* fix */
+    int fix = 0;
+    for (i = 0; i < config->tot_num; ++i) {
+        if (config->fix[i] > 0) {
+            fix++;
+            break;
+        }
+    }
+    if (fix > 0) {
+        sprintf(cmd, "group freeze id");
+        for (i = 0; i < config->tot_num; ++i) {
+            if (config->fix[i] > 0) {
+                sprintf(tmp_cmd, " %d", i + 1);
+                strcat(cmd, tmp_cmd);
+            }
+        }
+        lammps_command(lmp, cmd);
+        lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
+    }
+    if (target_num > 0) {
+        sprintf(cmd, "group target id");
+        for (i = 0; i < target_num; ++i) {
+            sprintf(tmp_cmd, " %d", target_list[i] + 1);
+            strcat(cmd, tmp_cmd);
+        }
+        lammps_command(lmp, cmd);
+    }
+    /* dynamical_matrix */
+    lammps_command(lmp, "dynamical_matrix target eskm 0.001 file dynmat.dat");
     /* delete LAMMPS instance */
     lammps_close(lmp);
 }

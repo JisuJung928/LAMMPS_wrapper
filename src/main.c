@@ -6,6 +6,7 @@
 #include "calculator.h"
 #include "config.h"
 #include "input.h"
+#include "target.h"
 #include "utils.h"
 
 
@@ -66,9 +67,15 @@ int main(int argc, char *argv[])
         Config *ini_config = (Config *)malloc(sizeof(Config));
         read_config(ini_config, input, argv[1]);
         atom_relax(ini_config, input);
+        if (rank == 0) {
+            write_config(ini_config, "POSCAR_initial", "w");
+        }
         Config *fin_config = (Config *)malloc(sizeof(Config));
         read_config(fin_config, input, argv[2]);
         atom_relax(fin_config, input);
+        if (rank == 0) {
+            write_config(fin_config, "POSCAR_final", "w");
+        }
 
         /* neb */
         neb(ini_config, fin_config, input);
@@ -79,6 +86,25 @@ int main(int argc, char *argv[])
 
         free_config(ini_config);
         free_config(fin_config);
+    } else if (input->dynamic_mat) {
+        Config *config = (Config *)malloc(sizeof(Config));
+        read_config(config, input, argv[1]);
+        atom_relax(config, input);
+        /* read target */
+        int target_num = 0;
+        int list_size = 64;
+        int *target_list = (int *)malloc(sizeof(int) * list_size);
+        errno = read_target(config, input, &target_num, &target_list, &list_size);
+        if (errno > 0) {
+            printf("ERROR in TARGET FILE!\n");
+            free_input(input);
+            free_config(config);
+            MPI_Finalize();
+            return 1;
+        }
+        dynamical_matrix(config, input, target_num, target_list);
+        free_config(config);
+        free(target_list);
     }
 
     free_input(input);

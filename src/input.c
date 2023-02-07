@@ -237,6 +237,10 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
+    errno = input_int(&(input->dynamic_mat), "DYNAMIC_MAT", filename);
+    if (errno) {
+        return 1;
+    }
     return 0;
 }
 
