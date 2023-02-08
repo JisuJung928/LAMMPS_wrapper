@@ -237,7 +237,7 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
-    errno = input_int(&(input->dynamic_mat), "DYNAMIC_MAT", filename);
+    errno = input_int(&(input->dynmat), "DYNMAT", filename);
     if (errno) {
         return 1;
     }

@@ -11,7 +11,7 @@ Neural Network Potentials (NNPs) made by [SIMPLE-NN](https://github.com/MDIL-SNU
 ```bash
 cd lammps
 mkdir build; cd build
-cmake ../cmake -D BUILD_SHARED_LIBS=yes -D PKG_REPLICA=yes
+cmake ../cmake -D BUILD_SHARED_LIBS=yes -D PKG_REPLICA=yes PKG_PHONON=yes
 cmake --build . --target install
 ```
 2. Build Check compiler type in `CMakeLists.txt`
@@ -36,7 +36,7 @@ ONESHOT     = 0
 ATOM_RELAX  = 1
 CELL_RELAX  = 0
 NEB         = 0
-DYNAMIC_MAT = 0
+DYNMAT      = 0
 
 # neb parameter #
 NIMAGES     = 7
@@ -54,11 +54,11 @@ NIMAGES     = 7
 |ATOM_RELAX|Atomic relaxation||
 |CELL_RELAX|Cell relaxation||
 |NEB|Nudged elastic band calculation||
-|DYNAMIC_MAT|Dynamical matrix calculation||
+|DYNMAT|Dynamical matrix calculation||
 |NIMAGES|The number of images in diffusion path||
 
 ## TARGET (only for DYNAMIC_MAT)
-It contains the target atom indices or types to be the center of active volume.
+It contains the atom indices or types to be the targets of dynamical matrix.
 ```text
 I 0 1 2 3
 T 1

@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 
         free_config(ini_config);
         free_config(fin_config);
-    } else if (input->dynamic_mat) {
+    } else if (input->dynmat) {
         Config *config = (Config *)malloc(sizeof(Config));
         read_config(config, input, argv[1]);
         atom_relax(config, input);
