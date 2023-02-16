@@ -331,7 +331,6 @@ void neb(Config *initial_config, Config *final_config, Input *input)
         lammps_command(lmp, "fix 2 all neb 5.0 parallel neigh");
     }
     lammps_command(lmp, "timestep 0.002");
-    //lammps_command(lmp, "min_style fire");
     lammps_command(lmp, "min_style quickmin");
 
     /* balance */
@@ -374,24 +373,6 @@ void dynamical_matrix(Config *config, Input *input, int target_num, int *target_
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
     /* fix */
-    int fix = 0;
-    for (i = 0; i < config->tot_num; ++i) {
-        if (config->fix[i] > 0) {
-            fix++;
-            break;
-        }
-    }
-    if (fix > 0) {
-        sprintf(cmd, "group freeze id");
-        for (i = 0; i < config->tot_num; ++i) {
-            if (config->fix[i] > 0) {
-                sprintf(tmp_cmd, " %d", i + 1);
-                strcat(cmd, tmp_cmd);
-            }
-        }
-        lammps_command(lmp, cmd);
-        lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
-    }
     if (target_num > 0) {
         sprintf(cmd, "group target id");
         for (i = 0; i < target_num; ++i) {
@@ -401,7 +382,7 @@ void dynamical_matrix(Config *config, Input *input, int target_num, int *target_
         lammps_command(lmp, cmd);
     }
     /* dynamical_matrix */
-    lammps_command(lmp, "dynamical_matrix target eskm 0.001");
+    lammps_command(lmp, "dynamical_matrix target eskm 0.001 file dynmat.dat");
     /* delete LAMMPS instance */
     lammps_close(lmp);
 }

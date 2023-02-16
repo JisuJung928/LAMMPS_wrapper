@@ -57,7 +57,7 @@ NIMAGES     = 7
 |DYNMAT|Dynamical matrix calculation||
 |NIMAGES|The number of images in diffusion path||
 
-## TARGET (only for DYNAMIC_MAT)
+## TARGET (only for DYNMAT)
 It contains the atom indices or types to be the targets of dynamical matrix.
 ```text
 I 0 1 2 3
@@ -83,4 +83,5 @@ mpirun -np $numproc ./LAMMPS_calculator POSCAR_in POSCAR_fin
 ## Tips  
 1. `INIT_CONFIG` should be VASP5 POSCAR format. 
 2. `numproc` in command should be the multiple of nimages. 
-2. `TARGET` file is needed for calculating dynamical matrix. 
+3. `TARGET` file is needed for calculating dynamical matrix. 
+4. Output of dynamical matrix is written as `dynmat.dat`.
