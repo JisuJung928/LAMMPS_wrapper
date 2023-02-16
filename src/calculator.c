@@ -330,8 +330,9 @@ void neb(Config *initial_config, Config *final_config, Input *input)
     } else {
         lammps_command(lmp, "fix 2 all neb 5.0 parallel neigh");
     }
-    lammps_command(lmp, "timestep 0.005");
-    lammps_command(lmp, "min_style fire");
+    lammps_command(lmp, "timestep 0.002");
+    //lammps_command(lmp, "min_style fire");
+    lammps_command(lmp, "min_style quickmin");
 
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
@@ -339,8 +340,8 @@ void neb(Config *initial_config, Config *final_config, Input *input)
     lammps_command(lmp, "variable i equal part");
 //    lammps_command(lmp, "dump mydump all custom 1 dump.lammps.$i id type x y z");
 //    lammps_command(lmp, "dump_modify mydump sort id");
-    //sprintf(cmd, "neb 0.0 %f 1000 1000 1 each replica.$i", input->max_force);
-    sprintf(cmd, "neb 0.0 %f 1000 0 1 each replica.$i", input->max_force);
+    sprintf(cmd, "neb 0.0 %f 1000 1000 1 each replica.$i", input->max_force);
+    //sprintf(cmd, "neb 0.0 %f 1000 0 1 each replica.$i", input->max_force);
     lammps_command(lmp, cmd);
 
     /* update positions */
@@ -400,7 +401,7 @@ void dynamical_matrix(Config *config, Input *input, int target_num, int *target_
         lammps_command(lmp, cmd);
     }
     /* dynamical_matrix */
-    lammps_command(lmp, "dynamical_matrix target eskm 0.001 file dynmat.dat");
+    lammps_command(lmp, "dynamical_matrix target eskm 0.001");
     /* delete LAMMPS instance */
     lammps_close(lmp);
 }
