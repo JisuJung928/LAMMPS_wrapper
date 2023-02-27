@@ -339,7 +339,7 @@ void neb(Config *initial_config, Config *final_config, Input *input)
     lammps_command(lmp, "variable i equal part");
 //    lammps_command(lmp, "dump mydump all custom 1 dump.lammps.$i id type x y z");
 //    lammps_command(lmp, "dump_modify mydump sort id");
-    sprintf(cmd, "neb 0.0 %f 1000 1000 1 each replica.$i", input->max_force);
+    sprintf(cmd, "neb 0.0 %f 10000 10000 1 each replica.$i", input->max_force);
     //sprintf(cmd, "neb 0.0 %f 1000 0 1 each replica.$i", input->max_force);
     lammps_command(lmp, cmd);
 
@@ -372,7 +372,7 @@ void dynamical_matrix(Config *config, Input *input, int target_num, int *target_
     lammps_command(lmp, cmd);
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
-    /* fix */
+    /* target */
     if (target_num > 0) {
         sprintf(cmd, "group target id");
         for (i = 0; i < target_num; ++i) {
