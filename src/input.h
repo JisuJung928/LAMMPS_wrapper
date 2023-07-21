@@ -14,9 +14,13 @@ typedef struct _Input
     int cell_relax;
     int neb;
     int dynmat;
+    int nvt_md;
+    int max_step;
 
     double max_force;
     double min_dist;
+    double timestep;
+    double temperature;
 } Input;
 
 int input_int(int *, char *, char *);

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "calculator.h"
 #define LAMMPS_LIB_MPI
 #include "library.h"
@@ -14,7 +15,7 @@ void *lmp_init(Config *config, Input *input, int lmpargc, char **lmpargv)
     /* create LAMMPS instance */
     int i;
     void *lmp;
-    char cmd[1024];
+    char cmd[65536];
     lmp = lammps_open(lmpargc, lmpargv, MPI_COMM_WORLD, NULL);
     if (lmp == NULL) {
         printf("LAMMPS initialization failed");
@@ -46,7 +47,7 @@ void *lmp_init(Config *config, Input *input, int lmpargc, char **lmpargv)
 
 void oneshot(Config *config, Input *input)
 {
-    char cmd[1024];
+    char cmd[65536];
     void *lmp = NULL;
     /* create LAMMPS instance */
     char *lmpargv[] = {"liblammps", "-screen", "none"};
@@ -69,7 +70,7 @@ void oneshot(Config *config, Input *input)
 void atom_relax(Config *config, Input *input)
 {
     int i, rank, size;
-    char cmd[1024], tmp_cmd[1024];
+    char cmd[65536], tmp_cmd[65536];
     void *lmp = NULL;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -106,7 +107,7 @@ void atom_relax(Config *config, Input *input)
         lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
     }
     /* dump */
-    lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z");
+    lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z fx fy fz");
     lammps_command(lmp, "dump_modify mydump sort id");
     /* minimize */
     sprintf(cmd, "minimize 0 %f 10000 100000", input->max_force);
@@ -124,7 +125,7 @@ void atom_relax(Config *config, Input *input)
 void cell_relax(Config *config, Input *input)
 {
     int i, rank, size;
-    char cmd[1024], tmp_cmd[1024];
+    char cmd[65536], tmp_cmd[65536];
     void *lmp = NULL;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -340,7 +341,7 @@ void neb(Config *initial_config, Config *final_config, Input *input)
 //    lammps_command(lmp, "dump mydump all custom 1 dump.lammps.$i id type x y z");
 //    lammps_command(lmp, "dump_modify mydump sort id");
     sprintf(cmd, "neb 0.0 %f 10000 10000 1 each replica.$i", input->max_force);
-    //sprintf(cmd, "neb 0.0 %f 1000 0 1 each replica.$i", input->max_force);
+//    sprintf(cmd, "neb 0.0 %f 1000 0 1 each replica.$i", input->max_force);
     lammps_command(lmp, cmd);
 
     /* update positions */
@@ -359,7 +360,7 @@ void neb(Config *initial_config, Config *final_config, Input *input)
 void dynamical_matrix(Config *config, Input *input, int target_num, int *target_list)
 {
     int i;
-    char tmp_cmd[1024], cmd[1024];
+    char tmp_cmd[65536], cmd[65536];
     void *lmp = NULL;
     /* create LAMMPS instance */
     char *lmpargv[] = {"liblammps", "-screen", "none"};
@@ -383,6 +384,81 @@ void dynamical_matrix(Config *config, Input *input, int target_num, int *target_
     }
     /* dynamical_matrix */
     lammps_command(lmp, "dynamical_matrix target eskm 0.001 file dynmat.dat");
+    /* delete LAMMPS instance */
+    lammps_close(lmp);
+}
+
+
+void molecular_dynamics(Config *config, Input *input)
+{
+    int i, rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    char tmp_cmd[65536], cmd[65536];
+    void *lmp = NULL;
+    /* create LAMMPS instance */
+    char *lmpargv[] = {"liblammps", "-screen", "none"};
+    int lmpargc = sizeof(lmpargv) / sizeof(char *);
+    lmp = lmp_init(config, input, lmpargc, lmpargv);
+    /* potential */
+    sprintf(cmd, "pair_style %s", input->pair_style);
+    lammps_command(lmp, cmd);
+    sprintf(cmd, "pair_coeff %s", input->pair_coeff);
+    lammps_command(lmp, cmd);
+    /* balance */
+    lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
+    /* fix */
+    int fix = 0;
+    for (i = 0; i < config->tot_num; ++i) {
+        if (config->fix[i] > 0) {
+            fix++;
+            break;
+        }
+    }
+    if (fix > 0) {
+        sprintf(cmd, "group freeze id");
+        for (i = 0; i < config->tot_num; ++i) {
+            if (config->fix[i] > 0) {
+                sprintf(tmp_cmd, " %d", i + 1);
+                strcat(cmd, tmp_cmd);
+            }
+        }
+        lammps_command(lmp, cmd);
+        lammps_command(lmp, "fix 1 freeze setforce 0.0 0.0 0.0");
+    }
+    /* dump */
+    lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z");
+    lammps_command(lmp, "dump_modify mydump sort id");
+    /* md */
+    sprintf(cmd, "timestep %f\n", input->timestep / 1000.0);
+    lammps_command(lmp, cmd);
+    srand(time(NULL));
+    int random = rand() % RAND_MAX;
+    MPI_Bcast(&random, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (fix > 0) {
+        lammps_command(lmp, "group mobile subtract all freeze");
+        sprintf(cmd, "velocity mobile create %f %d rot yes dist gaussian",
+                input->temperature, random);
+        lammps_command(lmp, cmd);
+        sprintf(cmd, "fix 2 mobile nvt temp %f %f $(100.0*dt)",
+                input->temperature, input->temperature);
+        lammps_command(lmp, cmd);
+    } else {
+        sprintf(cmd, "velocity all create %f %d rot yes dist gaussian",
+                input->temperature, random);
+        lammps_command(lmp, cmd);
+        sprintf(cmd, "fix 2 all nvt temp %f %f $(100.0*dt)",
+                input->temperature, input->temperature);
+        lammps_command(lmp, cmd);
+    }
+    sprintf(cmd, "run %d\n", input->max_step);
+    lammps_command(lmp, cmd);
+    /* update positions */
+    lammps_gather_atoms(lmp, "x", 1, 3, config->pos);
+    if (rank == 0) {
+        write_config(config, "POSCAR_finished", "w");
+    }
     /* delete LAMMPS instance */
     lammps_close(lmp);
 }

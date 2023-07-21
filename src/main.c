@@ -76,20 +76,16 @@ int main(int argc, char *argv[])
         if (rank == 0) {
             write_config(fin_config, "POSCAR_final", "w");
         }
-
         /* neb */
         neb(ini_config, fin_config, input);
-
         if (rank == 0) {
             remove("./output/in.template");
         }
-
         free_config(ini_config);
         free_config(fin_config);
     } else if (input->dynmat) {
         Config *config = (Config *)malloc(sizeof(Config));
         read_config(config, input, argv[1]);
-        atom_relax(config, input);
         /* read target */
         int target_num = 0;
         int list_size = 64;
@@ -105,6 +101,10 @@ int main(int argc, char *argv[])
         dynamical_matrix(config, input, target_num, target_list);
         free_config(config);
         free(target_list);
+    } else if (input->nvt_md) {
+        Config *config = (Config *)malloc(sizeof(Config));
+        read_config(config, input, argv[1]);
+        molecular_dynamics(config, input);
     }
 
     free_input(input);

@@ -217,10 +217,6 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
-    errno = input_int(&(input->nimages), "NIMAGES", filename);
-    if (errno) {
-        return 1;
-    }
     errno = input_int(&(input->oneshot), "ONESHOT", filename);
     if (errno) {
         return 1;
@@ -238,6 +234,26 @@ int read_input(Input *input, char *filename)
         return 1;
     }
     errno = input_int(&(input->dynmat), "DYNMAT", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_int(&(input->nvt_md), "NVT_MD", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_double(&(input->timestep), "TIMESTEP", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_int(&(input->max_step), "MAX_STEP", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_double(&(input->temperature), "TEMPERATURE", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_int(&(input->nimages), "NIMAGES", filename);
     if (errno) {
         return 1;
     }
