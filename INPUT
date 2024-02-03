@@ -3,21 +3,26 @@ NELEMENT    = 2
 ATOM_TYPE   = O Pt
 PAIR_STYLE  = nn
 PAIR_COEFF  = * * potential_saved O Pt
+
+# oneshot #
+ONESHOT     = 1
+
+# relaxation #
+ATOM_RELAX  = 0
+CELL_RELAX  = 0
 MAX_FORCE   = 0.05
+
+# neb #
+NEB         = 0
+NIMAGES     = 7
 MIN_DIST    = 2.8
 
-# calculator #
-ONESHOT     = 0
-ATOM_RELAX  = 1
-CELL_RELAX  = 0
-NEB         = 0
+# dynamic matrix #
 DYNMAT      = 0
+FINITE_DIFF = 0.001
+
+# NVT MD #
 NVT_MD      = 0
-
-# neb parameter #
-NIMAGES     = 7
-
-# MD parameter #
 TIMESTEP    = 2
 MAX_STEP    = 500
 TEMPERATURE = 300

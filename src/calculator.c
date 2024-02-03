@@ -60,6 +60,9 @@ void oneshot(Config *config, Input *input)
     lammps_command(lmp, cmd);
     /* balance */
     lammps_command(lmp, "balance 1.0 shift xyz 10 1.0");
+    /* dump */
+    lammps_command(lmp, "dump mydump all custom 1 dump.lammps id type x y z fx fy fz");
+    lammps_command(lmp, "dump_modify mydump sort id");
     /* oneshot */
     lammps_command(lmp, "run 0");
     /* delete LAMMPS instance */
@@ -383,7 +386,8 @@ void dynamical_matrix(Config *config, Input *input, int target_num, int *target_
         lammps_command(lmp, cmd);
     }
     /* dynamical_matrix */
-    lammps_command(lmp, "dynamical_matrix target eskm 0.001 file dynmat.dat");
+    sprintf(cmd, "dynamical_matrix target eskm %f file dynmat.dat", input->finite_diff);
+    lammps_command(lmp, cmd);
     /* delete LAMMPS instance */
     lammps_close(lmp);
 }

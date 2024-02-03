@@ -19,6 +19,7 @@ typedef struct _Input
 
     double max_force;
     double min_dist;
+    double finite_diff;
     double timestep;
     double temperature;
 } Input;

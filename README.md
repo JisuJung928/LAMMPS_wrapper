@@ -1,4 +1,4 @@
-# LAMMPS_calculator
+# LAMMPS_wrapper
 Any kinds of interatomic potential supported by LAMMPS can be used.  
 Neural Network Potentials (NNPs) made by [SIMPLE-NN](https://github.com/MDIL-SNU/SIMPLE-NN_v2) are also possible.  
 
@@ -16,46 +16,53 @@ cmake --build . --target install
 ```
 2. Build Check compiler type in `CMakeLists.txt`
 ```bash
-cd LAMMPS_calculator
+cd LAMMPS_wrapper
 mkdir build; cd build
 cmake ../src
 cmake --build .
 ```
 
 ## Input
-```bash
-# potential parameter #
-NELEMENT    = 2
-ATOM_TYPE   = O Pt
-PAIR_STYLE  = nn
-PAIR_COEFF  = * * potential_saved O Pt
-MAX_FORCE   = 0.02
-
-# calculator #
-ONESHOT     = 0
-ATOM_RELAX  = 1
-CELL_RELAX  = 0
-NEB         = 0
-DYNMAT      = 0
-
-# neb parameter #
-NIMAGES     = 7
-```
-
-|Tag|Description|Units|
-|:---|:---|:---|
-|NELEMENT|The number of elements||
-|ATOM_TYPE|Symbols of atom types in potential||
-|PAIR_STYLE|`pair_style` in LAMMPS input file||
-|PAIR_COEFF|`pair_coeff` in LAMMPS input file||
-|MAX_FORCE|Force convergence criteria|eV/Ang|
-|MIN_DIST|Minimum distance in initial images of NEB|Ang|
-|ONESHOT|Oneshot calculation||
-|ATOM_RELAX|Atomic relaxation||
-|CELL_RELAX|Cell relaxation||
-|NEB|Nudged elastic band calculation||
-|DYNMAT|Dynamical matrix calculation||
-|NIMAGES|The number of images in diffusion path||
+### Potential parameter ###
+* **NELEMENT** [integer]
+  - *NELEMENT* is the number of elements
+* **ATOM_TYPE** [strings]
+  - *ATOM_TYPE* is the symbols of elements
+* **PAIR_STYLE** [strings]
+  - *PAIR_STYLE* stands for the pair style in LAMMPS input.
+* **PAIR_COEFF** [strings]
+  - *PAIR_COEFF* stands for the pair coeff in LAMMPS input.
+### oneshot ###
+* **ONESHOT** [0/1]
+  - *ONESHOT* determines whether oneshot calculation runs.
+### relaxation ###
+* **ATOM_RELAX** [0/1]
+  - *ATOM_RELAX* determines whether atomic coordinates are optimized.
+* **CELL_RELAX** [0/1]
+  - *CELL_RELAX* determines whether lattice vectors are also optimized.
+* **MAX_FORCE** [real]
+  - *MAX_FORCE* sets the force tolerance for relaxation (in eV/Angst).
+### neb ###
+* **NEB** [0/1]
+  - *NEB* determines whether the nudged-elastic band method runs.
+* **NIMAGES** [integer]
+  - *NIMAGES* sets the number of images during the NEB emthod.
+* **MIN_DIST** [real]
+  - *MIN_DIST* sets the minimum bond distance between atoms when generating images with interpolation.
+### dynamic matrix ###
+* **DYNMAT** [0/1]
+  - *DYNMAT* determines whether the dynamical matrix is calculated.
+* **FINITE_DIFF** [real]
+  - *FINITE_DIFF* sets the displacement in finite difference method (in Angst).
+### NVT MD ###
+* **NVT_MD** [0/1]
+  - *NVT_MD* determines whether NVT molecular dynamics run.
+* **TIMESTEP** [real]
+  - *TIMESTEP* sets the timestep for time integration (in fs).
+* **MAX_STEP** [integer]
+  - *MAX_STEP* sets the maximum MD step.
+* **TEMPERATURE** [real]
+  - *TEMPERATURE* sets the temperature of system (in K).
 
 ## TARGET (only for DYNMAT)
 It contains the atom indices or types to be the targets of dynamical matrix.
@@ -71,12 +78,12 @@ A
 
 ## Command
 ```bash
-mpirun -np $numproc ./LAMMPS_calculator POSCAR
+mpirun -np $numproc ./LAMMPS_wrapper POSCAR
 ```
 
 For NEB calculation, two poscar files are needed.
 ```bash
-mpirun -np $numproc ./LAMMPS_calculator POSCAR_in POSCAR_fin
+mpirun -np $numproc ./LAMMPS_wrapper POSCAR_in POSCAR_fin
 ```
 `$numproc` stands for the number of CPU cores in parallel computation.
 

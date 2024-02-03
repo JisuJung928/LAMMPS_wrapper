@@ -209,14 +209,6 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
-    errno = input_double(&(input->max_force), "MAX_FORCE", filename);
-    if (errno) {
-        return 1;
-    }
-    errno = input_double(&(input->min_dist), "MIN_DIST", filename);
-    if (errno) {
-        return 1;
-    }
     errno = input_int(&(input->oneshot), "ONESHOT", filename);
     if (errno) {
         return 1;
@@ -229,11 +221,27 @@ int read_input(Input *input, char *filename)
     if (errno) {
         return 1;
     }
+    errno = input_double(&(input->max_force), "MAX_FORCE", filename);
+    if (errno) {
+        return 1;
+    }
     errno = input_int(&(input->neb), "NEB", filename);
     if (errno) {
         return 1;
     }
+    errno = input_int(&(input->nimages), "NIMAGES", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_double(&(input->min_dist), "MIN_DIST", filename);
+    if (errno) {
+        return 1;
+    }
     errno = input_int(&(input->dynmat), "DYNMAT", filename);
+    if (errno) {
+        return 1;
+    }
+    errno = input_double(&(input->finite_diff), "FINITE_DIFF", filename);
     if (errno) {
         return 1;
     }
@@ -250,10 +258,6 @@ int read_input(Input *input, char *filename)
         return 1;
     }
     errno = input_double(&(input->temperature), "TEMPERATURE", filename);
-    if (errno) {
-        return 1;
-    }
-    errno = input_int(&(input->nimages), "NIMAGES", filename);
     if (errno) {
         return 1;
     }
